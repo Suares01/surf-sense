@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  surf-sense-db:
+    image: postgres:latest
+    ports:
+      - 5432:5432
+    container_name: surf-sense-db
+    environment:
+      POSTGRES_USER: devuser
+      POSTGRES_PASSWORD: devpass
+      POSTGRES_DB: surf-sense-db
+
+  surf-sense-cache:
+    image: redis/redis-stack:latest
+    container_name: surf-sense-cache
+    environment:
+      REDIS_ARGS: --requirepass devpass
+    ports:
+      - 6379:6379
+      - 8001:8001
+
+  prometheus:
+    image: prom/prometheus:v2.44.0
+    container_name: prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - surf-sense-api
+
+  grafana:
+    image: grafana/grafana:9.5.2
+    container_name: grafana
+    ports:
+      - 3000:3000
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/grafana/datasources.yml:/etc/grafana/provisioning/datasources.yml
+      - grafana-storage:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+  surf-sense-api:
+    image: surf-sense/spring-api:latest
+    container_name: surf-sense-api
+    build: api
+    ports:
+      - 8080:8080
+    env_file: api/.env
+    depends_on:
+      - surf-sense-db
+      - surf-sense-cache
+
+volumes:
+  grafana-storage: {}
